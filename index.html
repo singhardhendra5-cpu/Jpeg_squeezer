@@ -1,638 +1,350 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Squeeze — JPEG size reducer</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg: #14131a;
-    --panel: #1c1b24;
-    --panel-raised: #24232e;
-    --line: #322f3d;
-    --text: #f2f0e9;
-    --muted: #8b8894;
-    --amber: #ff9d2f;
-    --cyan: #4fd1c5;
-    --danger: #ff6b6b;
-    --radius: 10px;
-  }
-  *{ box-sizing: border-box; }
-  html,body{ margin:0; padding:0; }
-  body{
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'IBM Plex Mono', monospace;
-    min-height: 100vh;
-    padding: 0 0 80px;
-  }
-  h1,h2,h3, .display{
-    font-family: 'Space Grotesk', sans-serif;
-  }
-  @media (prefers-reduced-motion: reduce){
-    *{ animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
-  }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JPEG Squeezer - Fast Image Compressor</title>
 
-  /* ---------- Header ---------- */
-  header{
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 56px 24px 32px;
-  }
-  .eyebrow{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    font-size: 12px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--cyan);
-    margin-bottom: 18px;
-  }
-  .eyebrow .dot{
-    width:6px; height:6px; background: var(--cyan); border-radius:1px;
-  }
-  h1{
-    font-size: clamp(34px, 6vw, 54px);
-    font-weight: 700;
-    line-height: 1.02;
-    margin: 0 0 14px;
-    letter-spacing: -0.01em;
-  }
-  h1 .mosaic-word{
-    position: relative;
-    display: inline-block;
-  }
-  header p{
-    color: var(--muted);
-    font-size: 15px;
-    line-height: 1.6;
-    max-width: 520px;
-    margin: 0;
-  }
-  header p b{ color: var(--text); font-weight: 500; }
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#2563eb">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="JPEG Squeezer">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="manifest" href="manifest.json">
 
-  /* ---------- Signature mosaic icon ---------- */
-  .mosaic{
-    display: inline-grid;
-    grid-template-columns: repeat(8, 1fr);
-    grid-template-rows: repeat(8, 1fr);
-    width: 46px;
-    height: 46px;
-    gap: 1px;
-    vertical-align: middle;
-    margin-right: 14px;
-  }
-  .mosaic span{
-    background: var(--amber);
-    opacity: 0.25;
-    animation: settle 3.2s ease-in-out infinite;
-  }
-  @keyframes settle{
-    0%, 100%{ opacity: 0.15; }
-    50%{ opacity: 0.9; }
-  }
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 14px;
+    }
 
-  /* ---------- Layout ---------- */
-  main{
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
 
-  /* ---------- Dropzone ---------- */
-  .dropzone{
-    position: relative;
-    border: 1px dashed var(--line);
-    border-radius: var(--radius);
-    background: var(--panel);
-    padding: 48px 24px;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color 0.2s ease, background 0.2s ease;
-    overflow: hidden;
-  }
-  .dropzone:hover, .dropzone:focus-visible{
-    border-color: var(--amber);
-    outline: none;
-  }
-  .dropzone.drag-over{
-    border-color: var(--cyan);
-    background: var(--panel-raised);
-  }
-  .dropzone .glyph{
-    display: inline-grid;
-    grid-template-columns: repeat(6, 1fr);
-    grid-template-rows: repeat(6, 1fr);
-    width: 54px;
-    height: 54px;
-    gap: 2px;
-    margin: 0 auto 18px;
-  }
-  .dropzone .glyph span{
-    background: var(--line);
-    border-radius: 1px;
-    transition: background 0.4s ease, transform 0.4s ease;
-  }
-  .dropzone:hover .glyph span, .dropzone.drag-over .glyph span{
-    background: var(--amber);
-  }
-  .dropzone .glyph span:nth-child(3n){ transition-delay: 0.03s; }
-  .dropzone .glyph span:nth-child(5n){ transition-delay: 0.07s; }
-  .dropzone-title{
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 17px;
-    font-weight: 600;
-    margin-bottom: 6px;
-  }
-  .dropzone-sub{
-    color: var(--muted);
-    font-size: 13px;
-  }
-  .dropzone-sub em{
-    color: var(--amber);
-    font-style: normal;
-  }
-  #fileInput{ display:none; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+    }
 
-  /* ---------- Controls ---------- */
-  .controls{
-    display:flex;
-    align-items:center;
-    justify-content: space-between;
-    gap: 24px;
-    flex-wrap: wrap;
-    margin-top: 28px;
-    padding: 18px 20px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-  }
-  .controls.hidden{ display:none; }
-  .quality-block{ flex: 1; min-width: 240px; }
-  .quality-label{
-    display:flex;
-    justify-content: space-between;
-    font-size: 12px;
-    color: var(--muted);
-    margin-bottom: 10px;
-    letter-spacing: 0.04em;
-  }
-  .quality-label b{
-    color: var(--amber);
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 14px;
-  }
-  input[type="range"]{
-    -webkit-appearance: none;
-    width: 100%;
-    height: 3px;
-    background: var(--line);
-    border-radius: 2px;
-    outline: none;
-  }
-  input[type="range"]::-webkit-slider-thumb{
-    -webkit-appearance: none;
-    width: 15px; height: 15px;
-    border-radius: 50%;
-    background: var(--amber);
-    cursor: pointer;
-    border: 2px solid var(--bg);
-    box-shadow: 0 0 0 1px var(--amber);
-  }
-  input[type="range"]::-moz-range-thumb{
-    width: 15px; height: 15px;
-    border-radius: 50%;
-    background: var(--amber);
-    cursor: pointer;
-    border: 2px solid var(--bg);
-  }
-  .resize-block{
-    display:flex;
-    align-items:center;
-    gap: 10px;
-    font-size: 13px;
-    color: var(--muted);
-  }
-  .resize-block select{
-    background: var(--panel-raised);
-    color: var(--text);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 7px 10px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 13px;
-  }
-  .btn{
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 600;
-    font-size: 13px;
-    letter-spacing: 0.02em;
-    border: none;
-    border-radius: 7px;
-    padding: 11px 18px;
-    cursor: pointer;
-    transition: transform 0.12s ease, opacity 0.12s ease;
-  }
-  .btn:active{ transform: scale(0.97); }
-  .btn-primary{
-    background: var(--amber);
-    color: #1a1408;
-  }
-  .btn-primary:hover{ opacity: 0.9; }
-  .btn-ghost{
-    background: transparent;
-    color: var(--muted);
-    border: 1px solid var(--line);
-  }
-  .btn-ghost:hover{ color: var(--text); border-color: var(--muted); }
+    header {
+      width: 100%;
+      max-width: 540px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0 20px 0;
+    }
 
-  /* ---------- Results ---------- */
-  .summary{
-    display: none;
-    margin-top: 28px;
-    padding: 20px;
-    border-radius: var(--radius);
-    background: linear-gradient(135deg, rgba(255,157,47,0.08), rgba(79,209,197,0.05));
-    border: 1px solid var(--line);
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-  .summary.show{ display:flex; }
-  .summary-stat{ display:flex; flex-direction: column; gap: 4px; }
-  .summary-stat .num{
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 26px;
-    font-weight: 700;
-  }
-  .summary-stat .num.saved{ color: var(--amber); }
-  .summary-stat .lbl{
-    font-size: 11px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
-  .file-list{
-    margin-top: 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .file-row{
-    display: grid;
-    grid-template-columns: 52px 1fr auto auto;
-    align-items: center;
-    gap: 16px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 12px 14px;
-    animation: rise 0.35s ease both;
-  }
-  @keyframes rise{
-    from{ opacity: 0; transform: translateY(6px); }
-    to{ opacity: 1; transform: translateY(0); }
-  }
-  .thumb{
-    width: 52px; height: 52px;
-    border-radius: 6px;
-    object-fit: cover;
-    background: var(--panel-raised);
-    border: 1px solid var(--line);
-  }
-  .file-meta{ min-width: 0; }
-  .file-name{
-    font-size: 13px;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-bottom: 6px;
-  }
-  .file-sizes{
-    font-size: 12px;
-    color: var(--muted);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .file-sizes .arrow{ color: var(--line); }
-  .file-sizes .after{ color: var(--cyan); }
-  .file-pct{
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--amber);
-    text-align: right;
-    white-space: nowrap;
-  }
-  .file-pct .lbl{
-    display:block;
-    font-family: 'IBM Plex Mono', monospace;
-    font-weight: 400;
-    font-size: 10px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .file-pct.grew{ color: var(--danger); }
-  .dl-btn{
-    background: var(--panel-raised);
-    border: 1px solid var(--line);
-    color: var(--text);
-    border-radius: 6px;
-    padding: 8px 14px;
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: border-color 0.15s ease, color 0.15s ease;
-  }
-  .dl-btn:hover{ border-color: var(--amber); color: var(--amber); }
-  .dl-btn:disabled{ opacity: 0.4; cursor: default; }
-  .status-pending{ color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .brand img {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+    }
 
-  footer{
-    max-width: 900px;
-    margin: 48px auto 0;
-    padding: 20px 24px 0;
-    border-top: 1px solid var(--line);
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.7;
-  }
-  footer b{ color: var(--text); }
+    .brand h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
 
-  ::selection{ background: var(--amber); color: #1a1408; }
-</style>
+    #install-btn {
+      display: none;
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+      transition: background 0.2s;
+    }
+
+    #install-btn:hover {
+      background: var(--primary-hover);
+    }
+
+    .container {
+      width: 100%;
+      max-width: 540px;
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border);
+    }
+
+    .dropzone {
+      border: 2px dashed #93c5fd;
+      background: #eff6ff;
+      border-radius: var(--radius);
+      padding: 32px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .dropzone:hover {
+      background: #dbeafe;
+      border-color: var(--primary);
+    }
+
+    .dropzone svg {
+      width: 48px;
+      height: 48px;
+      fill: var(--primary);
+      margin-bottom: 8px;
+    }
+
+    .dropzone p {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .controls {
+      display: none;
+      margin-top: 20px;
+    }
+
+    .control-group {
+      margin-bottom: 16px;
+    }
+
+    .control-group label {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--primary);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 16px 0;
+      background: var(--bg);
+      padding: 12px;
+      border-radius: 10px;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-item span {
+      font-size: 0.75rem;
+      color: var(--muted);
+      display: block;
+    }
+
+    .stat-item strong {
+      font-size: 1rem;
+      color: var(--primary);
+    }
+
+    .preview-box {
+      margin-top: 14px;
+      text-align: center;
+    }
+
+    .preview-box img {
+      max-width: 100%;
+      max-height: 250px;
+      border-radius: 8px;
+      object-fit: contain;
+    }
+
+    .btn-download {
+      display: block;
+      width: 100%;
+      background: #10b981;
+      color: white;
+      text-align: center;
+      padding: 12px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 600;
+      margin-top: 16px;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-download:hover {
+      background: #059669;
+    }
+  </style>
 </head>
 <body>
 
-<header>
-  <div class="eyebrow"><span class="dot"></span>runs entirely in your browser — nothing uploaded</div>
-  <h1><span class="mosaic" aria-hidden="true">
-    <span style="animation-delay:0s"></span><span style="animation-delay:0.1s"></span><span style="animation-delay:0.2s"></span><span style="animation-delay:0.3s"></span><span style="animation-delay:0.4s"></span><span style="animation-delay:0.5s"></span><span style="animation-delay:0.6s"></span><span style="animation-delay:0.7s"></span>
-    <span style="animation-delay:0.15s"></span><span style="animation-delay:0.25s"></span><span style="animation-delay:0.35s"></span><span style="animation-delay:0.45s"></span><span style="animation-delay:0.55s"></span><span style="animation-delay:0.65s"></span><span style="animation-delay:0.75s"></span><span style="animation-delay:0.05s"></span>
-    <span style="animation-delay:0.2s"></span><span style="animation-delay:0.3s"></span><span style="animation-delay:0.4s"></span><span style="animation-delay:0.5s"></span><span style="animation-delay:0.6s"></span><span style="animation-delay:0.7s"></span><span style="animation-delay:0s"></span><span style="animation-delay:0.1s"></span>
-    <span style="animation-delay:0.35s"></span><span style="animation-delay:0.45s"></span><span style="animation-delay:0.55s"></span><span style="animation-delay:0.65s"></span><span style="animation-delay:0.75s"></span><span style="animation-delay:0.05s"></span><span style="animation-delay:0.15s"></span><span style="animation-delay:0.25s"></span>
-    <span style="animation-delay:0.5s"></span><span style="animation-delay:0.6s"></span><span style="animation-delay:0.7s"></span><span style="animation-delay:0s"></span><span style="animation-delay:0.1s"></span><span style="animation-delay:0.2s"></span><span style="animation-delay:0.3s"></span><span style="animation-delay:0.4s"></span>
-    <span style="animation-delay:0.65s"></span><span style="animation-delay:0.75s"></span><span style="animation-delay:0.05s"></span><span style="animation-delay:0.15s"></span><span style="animation-delay:0.25s"></span><span style="animation-delay:0.35s"></span><span style="animation-delay:0.45s"></span><span style="animation-delay:0.55s"></span>
-    <span style="animation-delay:0.7s"></span><span style="animation-delay:0s"></span><span style="animation-delay:0.1s"></span><span style="animation-delay:0.2s"></span><span style="animation-delay:0.3s"></span><span style="animation-delay:0.4s"></span><span style="animation-delay:0.5s"></span><span style="animation-delay:0.6s"></span>
-    <span style="animation-delay:0.75s"></span><span style="animation-delay:0.05s"></span><span style="animation-delay:0.15s"></span><span style="animation-delay:0.25s"></span><span style="animation-delay:0.35s"></span><span style="animation-delay:0.45s"></span><span style="animation-delay:0.55s"></span><span style="animation-delay:0.65s"></span>
-  </span>Squeeze</h1>
-  <p>Drop in your JPEGs, drag the slider, and get back <b>smaller files</b> — every pixel is crunched right here on your device, nothing leaves your browser.</p>
-</header>
-
-<main>
-  <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload JPEG images">
-    <div class="glyph" aria-hidden="true">
-      <span></span><span></span><span></span><span></span><span></span><span></span>
-      <span></span><span></span><span></span><span></span><span></span><span></span>
-      <span></span><span></span><span></span><span></span><span></span><span></span>
-      <span></span><span></span><span></span><span></span><span></span><span></span>
-      <span></span><span></span><span></span><span></span><span></span><span></span>
-      <span></span><span></span><span></span><span></span><span></span><span></span>
+  <header>
+    <div class="brand">
+      <img src="icon-192.png" alt="JPEG Squeezer Icon">
+      <h1>JPEG Squeezer</h1>
     </div>
-    <div class="dropzone-title">Drop JPEGs here, or click to browse</div>
-    <div class="dropzone-sub">Also accepts PNG &amp; WebP — <em>converted to JPEG</em> for max savings</div>
-    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" multiple>
-  </div>
+    <button id="install-btn">📲 Install App</button>
+  </header>
 
-  <div class="controls hidden" id="controls">
-    <div class="quality-block">
-      <div class="quality-label">Quality <b id="qualityValue">70%</b></div>
-      <input type="range" id="qualitySlider" min="10" max="95" value="70" step="1">
+  <div class="container">
+    <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+      <svg viewBox="0 0 24 24">
+        <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+      </svg>
+      <h3>JPEG इमेज चुनें</h3>
+      <p>या यहाँ ड्रैग करके ड्रॉप करें</p>
     </div>
-    <div class="resize-block">
-      <span>Max width</span>
-      <select id="resizeSelect">
-        <option value="0">Original</option>
-        <option value="2560">2560px</option>
-        <option value="1920" selected>1920px</option>
-        <option value="1280">1280px</option>
-        <option value="800">800px</option>
-      </select>
-    </div>
-    <button class="btn btn-primary" id="reprocessBtn">Re-squeeze all</button>
-    <button class="btn btn-ghost" id="clearBtn">Clear</button>
-  </div>
+    <input type="file" id="fileInput" accept="image/jpeg, image/jpg, image/png">
 
-  <div class="summary" id="summary">
-    <div class="summary-stat">
-      <span class="num" id="statOriginal">0 KB</span>
-      <span class="lbl">Original total</span>
-    </div>
-    <div class="summary-stat">
-      <span class="num" id="statNew">0 KB</span>
-      <span class="lbl">Squeezed total</span>
-    </div>
-    <div class="summary-stat">
-      <span class="num saved" id="statSaved">0%</span>
-      <span class="lbl">Saved</span>
-    </div>
-    <button class="btn btn-primary" id="downloadAllBtn">Download all</button>
-  </div>
+    <div class="controls" id="controls">
+      <div class="control-group">
+        <label>
+          क्वालिटी (Quality):
+          <span id="qualityVal">75%</span>
+        </label>
+        <input type="range" id="qualityRange" min="5" max="100" value="75">
+      </div>
 
-  <div class="file-list" id="fileList"></div>
-</main>
-
-<footer>
-  <b>How it works —</b> each image is drawn to an off-screen canvas at your chosen dimensions, then re-encoded as a JPEG at the quality you set. Nothing is sent to a server; close the tab and it's gone. Quality below ~50% starts showing visible blocky artifacts — 60–80% is the sweet spot for photos.
-</footer>
-
-<script>
-(function(){
-  const dropzone = document.getElementById('dropzone');
-  const fileInput = document.getElementById('fileInput');
-  const controls = document.getElementById('controls');
-  const qualitySlider = document.getElementById('qualitySlider');
-  const qualityValue = document.getElementById('qualityValue');
-  const resizeSelect = document.getElementById('resizeSelect');
-  const reprocessBtn = document.getElementById('reprocessBtn');
-  const clearBtn = document.getElementById('clearBtn');
-  const fileListEl = document.getElementById('fileList');
-  const summaryEl = document.getElementById('summary');
-  const statOriginal = document.getElementById('statOriginal');
-  const statNew = document.getElementById('statNew');
-  const statSaved = document.getElementById('statSaved');
-  const downloadAllBtn = document.getElementById('downloadAllBtn');
-
-  /** @type {Array<{id:string, file:File, originalSize:number, img:HTMLImageElement, newBlob:Blob|null, newSize:number|null, thumbUrl:string}>} */
-  let items = [];
-
-  function fmtBytes(bytes){
-    if(bytes < 1024) return bytes + ' B';
-    if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
-    return (bytes/(1024*1024)).toFixed(2) + ' MB';
-  }
-
-  function uid(){ return Math.random().toString(36).slice(2, 10); }
-
-  qualitySlider.addEventListener('input', () => {
-    qualityValue.textContent = qualitySlider.value + '%';
-  });
-
-  dropzone.addEventListener('click', () => fileInput.click());
-  dropzone.addEventListener('keydown', (e) => {
-    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); fileInput.click(); }
-  });
-  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag-over'); });
-  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
-  dropzone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropzone.classList.remove('drag-over');
-    handleFiles(e.dataTransfer.files);
-  });
-  fileInput.addEventListener('change', (e) => {
-    handleFiles(e.target.files);
-    fileInput.value = '';
-  });
-
-  function handleFiles(fileList){
-    const files = Array.from(fileList).filter(f => /image\/(jpeg|png|webp)/.test(f.type));
-    if(files.length === 0) return;
-    controls.classList.remove('hidden');
-    files.forEach(addFile);
-  }
-
-  function addFile(file){
-    const id = uid();
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      const item = { id, file, originalSize: file.size, img, newBlob: null, newSize: null, thumbUrl: url };
-      items.push(item);
-      renderRow(item);
-      processItem(item);
-    };
-    img.src = url;
-  }
-
-  function renderRow(item){
-    const row = document.createElement('div');
-    row.className = 'file-row';
-    row.id = 'row-' + item.id;
-    row.innerHTML = `
-      <img class="thumb" src="${item.thumbUrl}" alt="">
-      <div class="file-meta">
-        <div class="file-name">${escapeHtml(item.file.name)}</div>
-        <div class="file-sizes">
-          <span>${fmtBytes(item.originalSize)}</span>
-          <span class="arrow">→</span>
-          <span class="after status-pending" id="after-${item.id}">squeezing…</span>
+      <div class="stats">
+        <div class="stat-item">
+          <span>ओरिजिनल साइज</span>
+          <strong id="origSize">0 KB</strong>
+        </div>
+        <div class="stat-item">
+          <span>कंप्रेस्ड साइज</span>
+          <strong id="compSize">0 KB</strong>
         </div>
       </div>
-      <div class="file-pct" id="pct-${item.id}"><span class="lbl">saved</span>—</div>
-      <button class="dl-btn" id="dl-${item.id}" disabled>Download</button>
-    `;
-    fileListEl.appendChild(row);
-    document.getElementById('dl-' + item.id).addEventListener('click', () => downloadItem(item));
-  }
 
-  function escapeHtml(s){
-    const d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
-  }
+      <div class="preview-box">
+        <img id="previewImg" alt="Compressed Preview">
+      </div>
 
-  function processItem(item){
-    const quality = Number(qualitySlider.value) / 100;
-    const maxW = Number(resizeSelect.value);
-    const canvas = document.createElement('canvas');
-    let w = item.img.naturalWidth;
-    let h = item.img.naturalHeight;
-    if(maxW > 0 && w > maxW){
-      h = Math.round(h * (maxW / w));
-      w = maxW;
+      <a id="downloadLink" class="btn-download" download="compressed.jpg">डाउनलोड करें</a>
+    </div>
+  </div>
+
+  <!-- App Functionality & PWA Scripts -->
+  <script>
+    // 1. Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => console.log('Service Worker Registered! Scope:', reg.scope))
+          .catch((err) => console.error('Service Worker Registration Failed:', err));
+      });
     }
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    // Flatten transparency onto white, since JPEG has no alpha channel
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, w, h);
-    ctx.drawImage(item.img, 0, 0, w, h);
 
-    canvas.toBlob((blob) => {
-      if(!blob) return;
-      item.newBlob = blob;
-      item.newSize = blob.size;
-      updateRow(item);
-      updateSummary();
-    }, 'image/jpeg', quality);
-  }
+    // 2. PWA Custom Install Prompt
+    let deferredPrompt;
+    const installBtn = document.getElementById('install-btn');
 
-  function updateRow(item){
-    const afterEl = document.getElementById('after-' + item.id);
-    const pctEl = document.getElementById('pct-' + item.id);
-    const dlBtn = document.getElementById('dl-' + item.id);
-    if(!afterEl) return;
-    afterEl.textContent = fmtBytes(item.newSize);
-    afterEl.classList.remove('status-pending');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = 'block';
+    });
 
-    const diffPct = Math.round((1 - item.newSize / item.originalSize) * 100);
-    if(diffPct >= 0){
-      pctEl.innerHTML = `<span class="lbl">saved</span>${diffPct}%`;
-      pctEl.classList.remove('grew');
-    } else {
-      pctEl.innerHTML = `<span class="lbl">grew</span>${Math.abs(diffPct)}%`;
-      pctEl.classList.add('grew');
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          installBtn.style.display = 'none';
+        }
+        deferredPrompt = null;
+      }
+    });
+
+    // 3. Image Squeezer Logic
+    const fileInput = document.getElementById('fileInput');
+    const controls = document.getElementById('controls');
+    const qualityRange = document.getElementById('qualityRange');
+    const qualityVal = document.getElementById('qualityVal');
+    const origSize = document.getElementById('origSize');
+    const compSize = document.getElementById('compSize');
+    const previewImg = document.getElementById('previewImg');
+    const downloadLink = document.getElementById('downloadLink');
+
+    let rawImage = null;
+    let originalFileSize = 0;
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      originalFileSize = file.size;
+      origSize.textContent = (originalFileSize / 1024).toFixed(1) + ' KB';
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        rawImage = new Image();
+        rawImage.onload = () => {
+          controls.style.display = 'block';
+          compressImage();
+        };
+        rawImage.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    qualityRange.addEventListener('input', () => {
+      qualityVal.textContent = qualityRange.value + '%';
+      compressImage();
+    });
+
+    function compressImage() {
+      if (!rawImage) return;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = rawImage.naturalWidth;
+      canvas.height = rawImage.naturalHeight;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(rawImage, 0, 0);
+
+      const quality = qualityRange.value / 100;
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        compSize.textContent = (blob.size / 1024).toFixed(1) + ' KB';
+        const url = URL.createObjectURL(blob);
+        previewImg.src = url;
+        downloadLink.href = url;
+      }, 'image/jpeg', quality);
     }
-    dlBtn.disabled = false;
-  }
-
-  function updateSummary(){
-    const done = items.filter(i => i.newSize !== null);
-    if(done.length === 0){ summaryEl.classList.remove('show'); return; }
-    const origTotal = done.reduce((a, i) => a + i.originalSize, 0);
-    const newTotal = done.reduce((a, i) => a + i.newSize, 0);
-    statOriginal.textContent = fmtBytes(origTotal);
-    statNew.textContent = fmtBytes(newTotal);
-    const savedPct = origTotal > 0 ? Math.round((1 - newTotal / origTotal) * 100) : 0;
-    statSaved.textContent = savedPct + '%';
-    summaryEl.classList.add('show');
-  }
-
-  function downloadItem(item){
-    if(!item.newBlob) return;
-    const a = document.createElement('a');
-    const base = item.file.name.replace(/\.[^.]+$/, '');
-    a.href = URL.createObjectURL(item.newBlob);
-    a.download = base + '-squeezed.jpg';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
-
-  downloadAllBtn.addEventListener('click', () => {
-    items.forEach((item, idx) => {
-      if(item.newBlob) setTimeout(() => downloadItem(item), idx * 220);
-    });
-  });
-
-  reprocessBtn.addEventListener('click', () => {
-    items.forEach(item => {
-      const afterEl = document.getElementById('after-' + item.id);
-      if(afterEl){ afterEl.textContent = 'squeezing…'; afterEl.classList.add('status-pending'); }
-      processItem(item);
-    });
-  });
-
-  clearBtn.addEventListener('click', () => {
-    items.forEach(i => URL.revokeObjectURL(i.thumbUrl));
-    items = [];
-    fileListEl.innerHTML = '';
-    summaryEl.classList.remove('show');
-    controls.classList.add('hidden');
-  });
-})();
-</script>
-
+  </script>
 </body>
 </html>
